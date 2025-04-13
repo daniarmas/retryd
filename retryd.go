@@ -12,15 +12,15 @@ type RetryStrategy interface {
 	ShouldRetry(attempt int, err error) (bool, time.Duration)
 }
 
-func Retry(ctx context.Context, function func() error, strategy RetryStrategy) error {
+func Retry(ctx context.Context, function func() error, strategy RetryStrategy, logMsg string) error {
 	var err error
 	for attempt := 0; ; attempt++ {
 		err = function()
-		if err != nil {
+		if err == nil {
 			return nil
 		}
-		msg := fmt.Sprintf("Attempt %d", attempt+1)
-		clogg.Info(ctx, msg)
+		msg := fmt.Sprintf("Attempt %d to %s", attempt+1, logMsg)
+		clogg.Warn(ctx, msg, clogg.String("error", err.Error()))
 
 		shouldRetry, delay := strategy.ShouldRetry(attempt, err)
 		if !shouldRetry {
@@ -28,5 +28,5 @@ func Retry(ctx context.Context, function func() error, strategy RetryStrategy) e
 		}
 		time.Sleep(delay)
 	}
-	return fmt.Errorf("func failed after retries: %w", err)
+	return err
 }
